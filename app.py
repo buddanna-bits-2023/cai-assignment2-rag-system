@@ -231,6 +231,8 @@ def main():
     if st.button("Submit Query"):
         # Input guide-rail check
         is_relevant_query, msg = is_relevant_query(user_query)
+        print('is_relevant_query', is_relevant_query)
+        print('msg', msg)
         if not is_relevant_query:
             #st.markdown(f"**Answer:** {response_text}")
             #st.markdown(f"**Confidence Score:** {confidence_score}")
