@@ -1,3 +1,4 @@
+import os
 import faiss
 #from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
