@@ -70,7 +70,7 @@ def sparse_retrieval(query, k=5):
     return results, scores
 
 def hybrid_search(query, k=5, alpha=0.5):
-    results, score = sparse_retrieval(query, k)
+    results, scores = sparse_retrieval(query, k)
     
     # Create a combined score dictionary
     combined_scores = {}
