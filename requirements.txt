@@ -1,0 +1,6 @@
+transformers
+sentence-transformers
+chromadb
+rank_bm25
+numpy
+scikit-learn
