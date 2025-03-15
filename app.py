@@ -13,6 +13,8 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import torch
 import torch.nn.functional as F
+import spacy
+import re
 import streamlit as st
 
 # Load GPT-Neo for response generation
@@ -194,6 +196,25 @@ def calculate_confidence_score(query, context, response):
     confidence_score = (0.4 * similarity_score) + (0.3 * bm25_score) + (0.3 * log_prob_score)
     return round(confidence_score, 4)
 
+
+nlp = spacy.load("en_core_web_sm")
+BANNED_WORDS = ["politics", "personal life", "health", "religion", "hack", "attack", "malware", "exploit", "harm"]
+def is_relevant_query(query):
+    """Checks if the query is finance-related using NER and regex filtering."""
+    # Check for banned words
+    if any(word in query.lower() for word in BANNED_WORDS):
+        return False, "Blocked: Question contains restricted topics."
+
+    # Check for finance-related entities
+    doc = nlp(query)
+    finance_entities = {"MONEY", "ORG", "DATE", "PERCENT"}
+    detected_entities = {ent.label_ for ent in doc.ents}
+
+    if not finance_entities.intersection(detected_entities):
+        return False, "Blocked: Query does not contain finance-related terms."
+
+    return True, "Query is valid."
+
 def main():
     st.title("Apple Inc. Financial RAG Chatbot with Hybrid Search")
     
@@ -208,6 +229,14 @@ def main():
     user_query = st.text_input("Enter your question about Apple's financials")
 
     if st.button("Submit Query"):
+        # Input guide-rail check
+        is_relevant_query, msg = is_relevant_query(user_query)
+        if not is_relevant_query:
+            #st.markdown(f"**Answer:** {response_text}")
+            #st.markdown(f"**Confidence Score:** {confidence_score}")
+            st.warning(f"Sorry I cannot answer your question since: {response_text}")
+            #st.stop()
+
         response_text = generate_answer(user_query)
         st.session_state.conversation_history.append({"user": user_query, "assistant": response_text})
         st.markdown(f"**Answer:** {response_text}")
