@@ -138,7 +138,7 @@ def main():
     if "conversation_history" not in st.session_state:
         st.session_state.conversation_history = []
     
-    index_documents(docs=docs, collection=collection)
+    index_documents(docs=docs)
 
     st.success("Document Indexes built successfully.")
 
