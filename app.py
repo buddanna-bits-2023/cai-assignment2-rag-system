@@ -50,7 +50,15 @@ def sparse_retrieval(query, k=5):
     # Generate sparse BM25 vector for the query
     tokenized_query = query.lower().split()
     query_vector = np.array(bm25.get_scores(tokenized_query), dtype='float32').reshape(1, -1)
-    
+
+    # Ensure dimension matches FAISS index
+    if query_vector.shape[1] < faiss_index.d:
+        padding = np.zeros((query_vector.shape[0], faiss_index.d - query_vector.shape[1]), dtype='float32')
+        query_vector = np.concatenate((query_vector, padding), axis=1)
+        
+    # Normalize for cosine similarity (if using IndexFlatIP)
+    query_vector = query_vector / np.linalg.norm(query_vector, axis=1, keepdims=True)
+
     # Search FAISS index for top-k matches
     distances, indices = faiss_index.search(query_vector, k)
     
