@@ -1,6 +1,6 @@
 transformers
 sentence-transformers
-chromadb==0.4.22
+faiss-cpu
 rank_bm25
 numpy
 scikit-learn
