@@ -4,3 +4,9 @@ faiss-cpu
 rank_bm25
 numpy
 scikit-learn
+pymupdf
+langchain
+pdf2image
+fitz
+camelot-py
+pypdf
