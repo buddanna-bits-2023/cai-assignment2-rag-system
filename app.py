@@ -100,8 +100,8 @@ def index_documents(docs):
     bm25 = BM25Okapi(tokenized_docs)
 
 current_path = os.getcwd()
-folder_path = os.path.join(current_path, "data")
-financial_report_paths = get_financial_reports(folder_path)
+financial_reports_path = os.path.join(current_path, "data")
+financial_report_paths = get_financial_reports(financial_reports_path)
 docs = preprocess_files_data(financial_report_paths)
 
 # Initialize BM25 with tokenized documents
