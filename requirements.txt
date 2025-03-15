@@ -1,6 +1,6 @@
 transformers
 sentence-transformers
-chromadb
+chromadb==0.4.22
 rank_bm25
 numpy
 scikit-learn
