@@ -70,13 +70,13 @@ def sparse_retrieval(query, k=5):
     return results, scores
 
 def hybrid_search(query, k=5, alpha=0.5):
-    sparse_results = sparse_retrieval(query, k)
+    results, score = sparse_retrieval(query, k)
     
     # Create a combined score dictionary
     combined_scores = {}
 
-    for text, score in sparse_results:
-        combined_scores[text] = alpha * score
+    for i, (result, score) in enumerate(zip(results, scores)):
+        combined_scores[result] = alpha * score
     
     # Sort by combined score
     sorted_results = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)
