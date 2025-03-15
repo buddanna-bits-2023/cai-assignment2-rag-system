@@ -1,4 +1,10 @@
 import faiss
+from langchain.document_loaders import PyPDFLoader
+from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.schema import Document
+import fitz  # PyMuPDF for text extraction
+from pdf2image import convert_from_path
+import camelot
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from sentence_transformers import SentenceTransformer
 from rank_bm25 import BM25Okapi
@@ -14,6 +20,64 @@ model = AutoModelForCausalLM.from_pretrained("EleutherAI/gpt-neo-125M")
 
 # Load Sentence Transformer for dense embeddings
 embedder = SentenceTransformer("all-MiniLM-L6-v2")  # Or "all-mpnet-base-v2" for better performance
+
+def get_financial_reports(folder_path):
+    file_list = os.listdir(folder_path)
+    financial_report_paths = []
+    for file in file_list:
+        file_path = os.path.join(financial_reports_path, file)
+        financial_report_paths.append(file_path)
+    return financial_report_paths
+
+def extract_text_from_pdf(pdf_path):
+    """Extract text from PDF using PyMuPDF"""
+    doc = fitz.open(pdf_path)
+    full_text = [page.get_text("text") for page in doc]
+    return "\n".join(full_text)
+
+def extract_tables_from_pdf(pdf_path):
+    """Extract tables from PDF using Camelot"""
+    tables = camelot.read_pdf(pdf_path, pages="all")
+    extracted_tables = [t.df for t in tables]
+    return extracted_tables
+
+def convert_table_to_text(table_df):
+    """Convert a pandas DataFrame to structured text"""
+    headers = table_df.iloc[0].tolist()
+    rows = [", ".join(f"{headers[i]}: {row[i]}" for i in range(len(headers))) for _, row in table_df.iloc[1:].iterrows()]
+    return " ".join(rows)
+
+def process_pdf(pdf_path):
+    """Extract text and tables, then convert tables into text"""
+    raw_text = extract_text_from_pdf(pdf_path)
+    tables = extract_tables_from_pdf(pdf_path)
+
+    table_texts = [convert_table_to_text(table) for table in tables]
+    full_text = raw_text + "\n".join(table_texts)
+
+    return full_text
+
+def chunk_text(document_text, chunk_size=500, chunk_overlap=50):
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
+    # Wrap the text in a Document object
+    doc = Document(page_content=document_text)
+    chunk_documents = text_splitter.split_documents([doc])
+    chunk_texts = []
+    for chunk in chunk_documents:
+      chunk_texts.append(chunk.page_content)
+    return chunk_texts
+    
+def preprocess_files_data(file_paths):
+    all_documents = []
+    for file_path in file_paths:
+      file_text = process_pdf(file_path)
+      file_name = os.path.basename(file_path)
+      chunks = chunk_text(file_text, chunk_size=200)
+      for c in chunks:
+          if len(c.strip()) > 0:
+              all_documents.append(c.strip())
+    
+    return all_documents
 
 def index_documents(docs):
     global faiss_index, bm25, doc_texts, tokenized_docs
@@ -34,13 +98,7 @@ def index_documents(docs):
     tokenized_docs = [doc.lower().split() for doc in docs]
     bm25 = BM25Okapi(tokenized_docs)
 
-docs = [
-    "OpenAI released ChatGPT in November 2022.",
-    "Elon Musk founded SpaceX in 2002.",
-    "Python is a popular programming language known for its simplicity.",
-    "The Earth revolves around the Sun.",
-    "Artificial Intelligence is transforming the world."
-]
+docs = preprocess_files_data(financial_report_paths)
 
 # Initialize BM25 with tokenized documents
 tokenized_docs = [doc.split() for doc in docs]
