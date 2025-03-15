@@ -47,26 +47,18 @@ tokenized_docs = [doc.split() for doc in docs]
 bm25 = BM25Okapi(tokenized_docs)
 
 def sparse_retrieval(query, k=5):
-    query_embedding = embedder.encode([query])
-    distances, indices = faiss_index.search(query_embedding, k)
-    faiss_scores = 1 / (1 + distances[0])  # Convert L2 distance to similarity
+    # Generate sparse BM25 vector for the query
+    tokenized_query = query.lower().split()
+    query_vector = np.array(bm25.get_scores(tokenized_query), dtype='float32').reshape(1, -1)
     
-    tokenized_query = query.split()
-    scores = bm25.get_scores(tokenized_query)
+    # Search FAISS index for top-k matches
+    distances, indices = faiss_index.search(query_vector, k)
     
-    # Normalize scores
-    faiss_scores /= faiss_scores.max()  # Normalize to 0–1 range
-    bm25_scores = bm25_scores / bm25_scores.max() if bm25_scores.max() > 0 else bm25_scores
+    # Convert L2 distances to similarity scores
+    scores = 1 / (1 + distances[0])
     
-    # Combine scores (alpha controls contribution of each)
-    combined_scores = alpha * faiss_scores + (1 - alpha) * bm25_scores
-    
-    # Rank based on combined scores
-    ranked_indices = np.argsort(combined_scores)[::-1]
-    
-    results = [documents[i] for i in ranked_indices[:k]]
-    scores = [combined_scores[i] for i in ranked_indices[:k]]
-    
+    # Return top documents
+    results = [docs[i] for i in indices[0]]
     return results, scores
 
 def hybrid_search(query, k=5, alpha=0.5):
