@@ -236,17 +236,17 @@ def main():
             #st.markdown(f"**Confidence Score:** {confidence_score}")
             st.warning(f"Sorry I cannot answer your question since: {response_text}")
             #st.stop()
+        else:
+            response_text = generate_answer(user_query)
+            st.session_state.conversation_history.append({"user": user_query, "assistant": response_text})
+            st.markdown(f"**Answer:** {response_text}")
 
-        response_text = generate_answer(user_query)
-        st.session_state.conversation_history.append({"user": user_query, "assistant": response_text})
-        st.markdown(f"**Answer:** {response_text}")
+            # Calculate confidence score
+            top_results = hybrid_search(user_query, k=3)
+            context = "\n".join([result[0] for result in top_results])
+            confidence = calculate_confidence_score(user_query, context, response_text)
 
-        # Calculate confidence score
-        top_results = hybrid_search(user_query, k=3)
-        context = "\n".join([result[0] for result in top_results])
-        confidence = calculate_confidence_score(user_query, context, response_text)
-
-        st.markdown(f"**Confidence Score:** {confidence:.4f}")
+            st.markdown(f"**Confidence Score:** {confidence:.4f}")
 
 if __name__ == "__main__":
     main()
