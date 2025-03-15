@@ -230,7 +230,7 @@ def main():
         if not is_relevant:
             #st.markdown(f"**Answer:** {response_text}")
             #st.markdown(f"**Confidence Score:** {confidence_score}")
-            st.warning(f"Sorry I cannot answer your question since: {response_text}")
+            st.warning(f"Sorry I cannot answer your question since: {msg}")
             #st.stop()
         else:
             response_text = generate_answer(user_query)
