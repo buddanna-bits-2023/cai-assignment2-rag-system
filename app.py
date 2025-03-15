@@ -1,4 +1,4 @@
-import chromadb
+import faiss
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from sentence_transformers import SentenceTransformer
 from rank_bm25 import BM25Okapi
@@ -15,22 +15,24 @@ model = AutoModelForCausalLM.from_pretrained("EleutherAI/gpt-neo-125M")
 # Load Sentence Transformer for dense embeddings
 embedder = SentenceTransformer("all-MiniLM-L6-v2")  # Or "all-mpnet-base-v2" for better performance
 
-def create_chromadb_collection(collection_name):
-    client = chromadb.Client()
-    collection_name = collection_name
-    collection = client.create_collection(name=collection_name)
-    return collection
+def index_documents(docs):
+    global faiss_index, bm25, doc_texts, tokenized_docs
 
+    doc_texts = docs
+    # Generate embeddings
+    embeddings = embedder.encode(docs)
 
-def index_documents(docs, collection):
-    # Index into ChromaDB
-    for i, doc in enumerate(docs):
-        embedding = embedder.encode(doc).tolist()
-        collection.add(
-            ids=[str(i)],
-            embeddings=[embedding],
-            metadatas=[{"text": doc}]
-        )
+    # Create FAISS index (L2 distance)
+    dimension = embeddings.shape[1]
+    faiss_index = faiss.IndexFlatL2(dimension)
+    
+    # Add embeddings to FAISS index
+    faiss_index.add(embeddings)
+
+    # Step 2: BM25 Index
+    # Tokenize for BM25
+    tokenized_docs = [doc.lower().split() for doc in docs]
+    bm25 = BM25Okapi(tokenized_docs)
 
 docs = [
     "OpenAI released ChatGPT in November 2022.",
@@ -45,39 +47,37 @@ tokenized_docs = [doc.split() for doc in docs]
 bm25 = BM25Okapi(tokenized_docs)
 
 def sparse_retrieval(query, k=5):
+    query_embedding = embedder.encode([query])
+    distances, indices = index.search(query_embedding, k)
+    faiss_scores = 1 / (1 + distances[0])  # Convert L2 distance to similarity
+    
     tokenized_query = query.split()
     scores = bm25.get_scores(tokenized_query)
-    top_indices = np.argsort(scores)[::-1][:k]
-    return [(docs[i], scores[i]) for i in top_indices]
-
-def dense_retrieval(collection, query, k=5):
-    query_embedding = embedder.encode(query).tolist()
-    results = collection.query(
-        query_embeddings=[query_embedding],
-        n_results=k
-    )
-
-    result_values = []
-    for i, result in enumerate(results["metadatas"][0]):
-      result_values.append((results["metadatas"][0][i]["text"], results["distances"][0][i]))
-    return result_values
+    
+    # Normalize scores
+    faiss_scores /= faiss_scores.max()  # Normalize to 0–1 range
+    bm25_scores = bm25_scores / bm25_scores.max() if bm25_scores.max() > 0 else bm25_scores
+    
+    # Combine scores (alpha controls contribution of each)
+    combined_scores = alpha * faiss_scores + (1 - alpha) * bm25_scores
+    
+    # Rank based on combined scores
+    ranked_indices = np.argsort(combined_scores)[::-1]
+    
+    results = [documents[i] for i in ranked_indices[:k]]
+    scores = [combined_scores[i] for i in ranked_indices[:k]]
+    
+    return results, scores
 
 def hybrid_search(query, k=5, alpha=0.5):
     sparse_results = sparse_retrieval(query, k)
-    dense_results = dense_retrieval(query, k)
-
+    
     # Create a combined score dictionary
     combined_scores = {}
 
     for text, score in sparse_results:
         combined_scores[text] = alpha * score
     
-    for text, score in dense_results:
-        if text in combined_scores:
-            combined_scores[text] += (1 - alpha) * score
-        else:
-            combined_scores[text] = (1 - alpha) * score
-
     # Sort by combined score
     sorted_results = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)
     return sorted_results[:k]
@@ -138,8 +138,6 @@ def main():
     if "conversation_history" not in st.session_state:
         st.session_state.conversation_history = []
     
-    collection_name = "hybrid_search"
-    collection = create_chromadb_collection(collection_name)
     index_documents(docs=docs, collection=collection)
 
     st.success("Document Indexes built successfully.")
