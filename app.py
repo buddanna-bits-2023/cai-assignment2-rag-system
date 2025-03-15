@@ -196,7 +196,7 @@ def calculate_confidence_score(query, context, response):
     confidence_score = (0.4 * similarity_score) + (0.3 * bm25_score) + (0.3 * log_prob_score)
     return round(confidence_score, 4)
 
-
+spacy.cli.download('en_core_web_sm')
 nlp = spacy.load("en_core_web_sm")
 BANNED_WORDS = ["politics", "personal life", "health", "religion", "hack", "attack", "malware", "exploit", "harm"]
 def is_relevant_query(query):
