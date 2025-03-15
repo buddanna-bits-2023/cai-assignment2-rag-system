@@ -48,7 +48,7 @@ bm25 = BM25Okapi(tokenized_docs)
 
 def sparse_retrieval(query, k=5):
     query_embedding = embedder.encode([query])
-    distances, indices = index.search(query_embedding, k)
+    distances, indices = faiss_index.search(query_embedding, k)
     faiss_scores = 1 / (1 + distances[0])  # Convert L2 distance to similarity
     
     tokenized_query = query.split()
