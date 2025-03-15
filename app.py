@@ -1,5 +1,5 @@
 import faiss
-from langchain.document_loaders import PyPDFLoader
+#from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 import fitz  # PyMuPDF for text extraction
