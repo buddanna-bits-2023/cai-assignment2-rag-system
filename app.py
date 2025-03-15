@@ -13,8 +13,6 @@ from sklearn.metrics.pairwise import cosine_similarity
 import numpy as np
 import torch
 import torch.nn.functional as F
-import spacy
-import re
 import streamlit as st
 
 # Load GPT-Neo for response generation
@@ -196,22 +194,18 @@ def calculate_confidence_score(query, context, response):
     confidence_score = (0.4 * similarity_score) + (0.3 * bm25_score) + (0.3 * log_prob_score)
     return round(confidence_score, 4)
 
-#spacy.cli.download('en_core_web_lg')
-nlp = spacy.load("en_core_web_sm")
 BANNED_WORDS = ["politics", "personal life", "health", "religion", "hack", "attack", "malware", "exploit", "harm"]
 def is_relevant_query(query):
     """Checks if the query is finance-related using NER and regex filtering."""
+    
+    # Check for query length
+    query_tokens = query.lower().split()
+    if len(query_tokens) > 1024:
+        return False, "Blocked: Too many tokens with the query. Please check."
+    
     # Check for banned words
     if any(word in query.lower() for word in BANNED_WORDS):
         return False, "Blocked: Question contains restricted topics."
-
-    # Check for finance-related entities
-    doc = nlp(query)
-    finance_entities = {"MONEY", "ORG", "DATE", "PERCENT"}
-    detected_entities = {ent.label_ for ent in doc.ents}
-
-    if not finance_entities.intersection(detected_entities):
-        return False, "Blocked: Query does not contain finance-related terms."
 
     return True, "Query is valid."
 
