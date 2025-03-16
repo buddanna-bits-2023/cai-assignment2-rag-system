@@ -144,17 +144,33 @@ def hybrid_search(query, k=5, alpha=0.5):
     sorted_results = sorted(combined_scores.items(), key=lambda x: x[1], reverse=True)
     return sorted_results[:k]
 
-def generate_answer(query):
+def generate_answer(query, conversation_history):
+    history_str = "\n".join(
+        [f"User: {turn['user']}\nAssistant: {turn['assistant']}" for turn in conversation_history[-3:]]
+    )
     # Retrieve top hybrid search results
     top_results = hybrid_search(query, k=3)
-    context = "\n".join([result[0] for result in top_results])
+    context_str = "\n".join([result[0] for result in top_results])
 
-    input_text = f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
+    prompt = (
+        f"{history_str}\n"
+        f"User: {query}\n\n"
+        f"Relevant Apple Filings:\n{context_str}\n\n"
+        f"Assistant:"
+    )
+
+    #input_text = f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
     
-    inputs = tokenizer(input_text, return_tensors="pt")
-    output = model.generate(**inputs, max_length=300, num_return_sequences=1)
+    input_ids = tokenizer(prompt, return_tensors="pt")
+    output = model.generate(**input_ids, 
+                            max_length=512, 
+                            temperature=0.7,
+                            do_sample=True,
+                            top_p=0.9,
+                            pad_token_id=tokenizer.eos_token_id
+                        )
     
-    response = tokenizer.decode(output[0], skip_special_tokens=True)
+    response = tokenizer.decode(output[0][len(input_ids[0]):], skip_special_tokens=True)
     return response
 
 def calculate_confidence(query, context):
@@ -233,7 +249,7 @@ def main():
             st.warning(f"Sorry I cannot answer your question since: {msg}")
             #st.stop()
         else:
-            response_text = generate_answer(user_query)
+            response_text = generate_answer(user_query, st.session_state.conversation_history)
             st.session_state.conversation_history.append({"user": user_query, "assistant": response_text})
             st.markdown(f"**Answer:** {response_text}")
 
