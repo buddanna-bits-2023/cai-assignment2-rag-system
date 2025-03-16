@@ -1,6 +1,8 @@
+###############################################################################
+# IMPORT PACKAGES
+###############################################################################
 import os
 import faiss
-#from langchain.document_loaders import PyPDFLoader
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.schema import Document
 import fitz  # PyMuPDF for text extraction
@@ -15,14 +17,22 @@ import torch
 import torch.nn.functional as F
 import streamlit as st
 
+###############################################################################
 # Load GPT-Neo for response generation
+###############################################################################
 tokenizer = AutoTokenizer.from_pretrained("EleutherAI/gpt-neo-125M")
 model = AutoModelForCausalLM.from_pretrained("EleutherAI/gpt-neo-125M")
 
+###############################################################################
 # Load Sentence Transformer for dense embeddings
 embedder = SentenceTransformer("all-MiniLM-L6-v2")  # Or "all-mpnet-base-v2" for better performance
+###############################################################################
 
+###############################################################################
+# Financial Reports loading
+###############################################################################
 def get_financial_reports(folder_path):
+    """Gets financial report file paths of a given folder"""
     file_list = os.listdir(folder_path)
     financial_report_paths = []
     for file in file_list:
@@ -59,6 +69,7 @@ def process_pdf(pdf_path):
     return full_text
 
 def chunk_text(document_text, chunk_size=500, chunk_overlap=50):
+    """Generates chunks of given size with ovelap using RecursiveCharacterTextSplitter"""
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap)
     # Wrap the text in a Document object
     doc = Document(page_content=document_text)
@@ -69,10 +80,10 @@ def chunk_text(document_text, chunk_size=500, chunk_overlap=50):
     return chunk_texts
     
 def preprocess_files_data(file_paths):
+    """Extracts chunks of each document"""
     all_documents = []
     for file_path in file_paths:
       file_text = process_pdf(file_path)
-      file_name = os.path.basename(file_path)
       chunks = chunk_text(file_text, chunk_size=200)
       for c in chunks:
           if len(c.strip()) > 0:
@@ -81,11 +92,13 @@ def preprocess_files_data(file_paths):
     return all_documents
 
 def index_documents(docs):
+    """Create embeddings and stores in Faiss"""
     global faiss_index, bm25, doc_texts, tokenized_docs
 
     doc_texts = docs
+    
     # Generate embeddings
-    embeddings = embedder.encode(docs)
+    embeddings = embedder.encode(doc_texts, convert_to_numpy=True)
 
     # Create FAISS index (L2 distance)
     dimension = embeddings.shape[1]
@@ -96,17 +109,13 @@ def index_documents(docs):
 
     # Step 2: BM25 Index
     # Tokenize for BM25
-    tokenized_docs = [doc.lower().split() for doc in docs]
+    tokenized_docs = [doc.lower().split() for doc in doc_texts]
     bm25 = BM25Okapi(tokenized_docs)
 
 current_path = os.getcwd()
 financial_reports_path = os.path.join(current_path, "data")
 financial_report_paths = get_financial_reports(financial_reports_path)
 docs = preprocess_files_data(financial_report_paths)
-
-# Initialize BM25 with tokenized documents
-tokenized_docs = [doc.split() for doc in docs]
-bm25 = BM25Okapi(tokenized_docs)
 
 def sparse_retrieval(query, k=5):
     # Generate sparse BM25 vector for the query
@@ -235,7 +244,7 @@ def main():
 
     st.success("Document Indexes built successfully.")
 
-    st.subheader("1. Ask a Question")
+    st.subheader("Ask a Question")
     user_query = st.text_input("Enter your question about Apple's financials")
 
     if st.button("Submit Query"):
@@ -244,11 +253,9 @@ def main():
         print('is_relevant_query', is_relevant)
         print('msg', msg)
         if not is_relevant:
-            #st.markdown(f"**Answer:** {response_text}")
-            #st.markdown(f"**Confidence Score:** {confidence_score}")
             st.warning(f"Sorry I cannot answer your question since: {msg}")
-            #st.stop()
         else:
+            #Generate response and write to conversation history
             response_text = generate_answer(user_query, st.session_state.conversation_history)
             st.session_state.conversation_history.append({"user": user_query, "assistant": response_text})
             st.markdown(f"**Answer:** {response_text}")
@@ -260,5 +267,10 @@ def main():
 
             st.markdown(f"**Confidence Score:** {confidence:.4f}")
 
+    st.subheader("Testing & Validation")
+    st.write("Try queries like:")
+    st.write("- 'What is the total revenue mentioned in the report for 2023?'")
+    st.write("- 'What is the Cash paid for interest in 2024?'")
+    st.write("- 'Who are Apple’s executive officers?' (non-financial but still in the 10-K)")
 if __name__ == "__main__":
     main()
