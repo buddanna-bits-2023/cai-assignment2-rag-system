@@ -152,7 +152,7 @@ def generate_answer(query):
     input_text = f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
     
     inputs = tokenizer(input_text, return_tensors="pt")
-    output = model.generate(**inputs, max_length=200, num_return_sequences=1)
+    output = model.generate(**inputs, max_length=10240, num_return_sequences=1)
     
     response = tokenizer.decode(output[0], skip_special_tokens=True)
     return response
@@ -201,7 +201,7 @@ def is_relevant_query(query):
     # Check for query length
     query_tokens = query.lower().split()
     if len(query_tokens) > 1024:
-        return False, "Blocked: Too many tokens with the query. Please check."
+        return False, "Blocked: Too many tokens (>1024) with the query. Please check."
     
     # Check for banned words
     if any(word in query.lower() for word in BANNED_WORDS):
