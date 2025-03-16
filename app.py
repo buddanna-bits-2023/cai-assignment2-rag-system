@@ -152,6 +152,7 @@ def generate_answer(query):
     input_text = f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
     
     inputs = tokenizer(input_text, return_tensors="pt")
+    inputs = inputs[:, :1024] #truncate input tokens to max length of the model
     output = model.generate(**inputs, max_length=1024, num_return_sequences=1)
     
     response = tokenizer.decode(output[0], skip_special_tokens=True)
