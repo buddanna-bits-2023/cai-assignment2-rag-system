@@ -161,9 +161,9 @@ def generate_answer(query, conversation_history):
 
     #input_text = f"Context:\n{context}\n\nQuestion: {query}\nAnswer:"
     
-    input_ids = tokenizer(prompt, return_tensors="pt")
+    input_ids = tokenizer(prompt, return_tensors="pt", max_length=2048, truncation=True)
     output = model.generate(**input_ids, 
-                            max_length=512, 
+                            max_new_tokens=300, 
                             temperature=0.7,
                             do_sample=True,
                             top_p=0.9,
